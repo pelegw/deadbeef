@@ -35,3 +35,4 @@ used for container escape.
 Detecting if vDSO is successfuly patched isn't bulletproof. During the *restore*
 step, the vDSO is effectively restored but the exploit fails to report it
 correctly. Indeed, the vDSO changes don't seem to affect the exploit process.
+# deadbeef
